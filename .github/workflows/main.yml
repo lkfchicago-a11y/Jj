@@ -1,0 +1,388 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>CreatorHub — Demo Subscription Platform</title>
+<meta name="description" content="CreatorHub demo — subscription-style content (SFW). Demo only." />
+<style>
+  :root{
+    --bg:#0b1220; --card:#071026; --muted:#9fb0c0; --accent:#ff6b6b; --glass: rgba(255,255,255,0.03);
+    font-family: Inter, system-ui, -apple-system, "Segoe UI", Roboto, Arial; color:#e6eef6;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:linear-gradient(180deg,var(--bg),#04101a);padding:20px;min-height:100vh}
+  .wrap{max-width:1100px;margin:0 auto;display:grid;gap:16px}
+  header{display:flex;align-items:center;justify-content:space-between}
+  .brand{display:flex;gap:12px;align-items:center}
+  .logo{width:48px;height:48px;border-radius:10px;background:linear-gradient(135deg,#ff9a9e,var(--accent));display:flex;align-items:center;justify-content:center;font-weight:700;color:#201}
+  nav{display:flex;gap:8px;align-items:center}
+  .btn{background:var(--accent);border:0;padding:8px 12px;border-radius:10px;color:white;cursor:pointer;font-weight:600}
+  .card{background:linear-gradient(180deg,var(--card), rgba(10,14,24,0.6));padding:14px;border-radius:12px;box-shadow:0 6px 20px rgba(0,0,0,0.5)}
+  .grid{display:grid;grid-template-columns:300px 1fr;gap:16px}
+  .creator{display:flex;gap:12px;align-items:center}
+  .avatar{width:72px;height:72px;border-radius:12px;background:linear-gradient(180deg,#2b3440,#161a21);display:flex;align-items:center;justify-content:center;font-weight:700;color:#9fb8c5}
+  .muted{color:var(--muted);font-size:13px}
+  .posts{display:flex;flex-direction:column;gap:12px;margin-top:12px}
+  .post{padding:10px;border-radius:10px;background:rgba(255,255,255,0.02)}
+  input, textarea, select{background:var(--glass);border:1px solid rgba(255,255,255,0.04);padding:8px;border-radius:8px;color:var(--muted);width:100%}
+  .center{display:flex;flex-direction:column;gap:12px}
+  .pill{display:inline-block;padding:6px 8px;border-radius:999px;background:rgba(255,255,255,0.02);font-size:13px;color:var(--muted)}
+  footer{color:var(--muted);font-size:13px;text-align:center;margin-top:12px}
+  @media(max-width:880px){ .grid{grid-template-columns:1fr} .avatar{width:56px;height:56px} }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="brand">
+      <div class="logo">CH</div>
+      <div>
+        <div style="font-weight:700">CreatorHub (Demo)</div>
+        <div class="muted">Subscription-style creator platform — demo only</div>
+      </div>
+    </div>
+    <nav>
+      <div id="accountArea" class="muted">Not signed in</div>
+      <button class="btn" id="signinBtn">Sign in / Register</button>
+    </nav>
+  </header>
+
+  <div class="grid">
+    <!-- Left: creators list -->
+    <aside>
+      <div class="card">
+        <h3>Creators</h3>
+        <div id="creatorsList" style="display:flex;flex-direction:column;gap:10px;margin-top:10px"></div>
+        <hr style="margin:12px 0;border:none;height:10px" />
+        <button class="btn" id="becomeCreatorBtn">Become a creator (demo)</button>
+      </div>
+      <div style="height:12px"></div>
+      <div class="card muted">
+        <strong>Notes</strong>
+        <div style="margin-top:8px">This demo simulates subscription gating. In production integrate a payment processor (Stripe/PayPal), backend auth, age verification, moderation, and secure media storage.</div>
+      </div>
+    </aside>
+
+    <!-- Right: selected creator & posts -->
+    <main>
+      <div class="card" id="profileCard">
+        <!-- filled by JS -->
+        <div style="display:flex;justify-content:space-between;align-items:center">
+          <div class="creator">
+            <div class="avatar" id="profileAvatar">C</div>
+            <div>
+              <div id="profileName" style="font-weight:700">Creator Name</div>
+              <div class="muted" id="profileBio">Creator bio goes here.</div>
+            </div>
+          </div>
+          <div>
+            <div id="subscribeArea"></div>
+          </div>
+        </div>
+
+        <div class="posts" id="postsArea">
+          <!-- posts appended here -->
+        </div>
+
+        <hr style="margin:12px 0;border:none;height:10px" />
+
+        <div id="creatorActions" class="center hidden">
+          <h4>Create a post (creator only)</h4>
+          <input id="postTitle" placeholder="Post title" />
+          <textarea id="postContent" rows="4" placeholder="Write something for your subscribers..."></textarea>
+          <select id="postAccess">
+            <option value="public">Public (preview)</option>
+            <option value="subscribers">Subscribers only</option>
+          </select>
+          <div style="display:flex;gap:8px">
+            <button class="btn" id="createPostBtn">Publish (demo)</button>
+            <button class="btn" id="createPostCancel">Cancel</button>
+          </div>
+        </div>
+
+      </div>
+    </main>
+  </div>
+
+  <footer class="muted">Demo platform — replace localStorage with backend, integrate Stripe Checkout / Billing portal, add TOS & moderation before production.</footer>
+</div>
+
+<!-- Simple modal for sign-in / subscribe flows -->
+<div id="modal" style="position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);min-width:320px;max-width:600px;z-index:9999;display:none">
+  <div class="card">
+    <div id="modalContent"></div>
+    <div style="display:flex;justify-content:flex-end;margin-top:8px">
+      <button class="btn" id="modalClose">Close</button>
+    </div>
+  </div>
+</div>
+
+<script>
+/*
+  CREATORHUB DEMO (single-file)
+  - LocalStorage-based demo of creators, posts, and subscription gating.
+  - NOT for production. Replace with backend, real auth, payment integration, age verification, moderation.
+  - To integrate payments in production: use Stripe Checkout + Webhooks, store subscription state server-side.
+*/
+
+// --- Helpers
+const $ = id => document.getElementById(id);
+const storage = window.localStorage;
+
+function boot(){
+  if(!storage.getItem('ch_demo_v1')){
+    const creators = [
+      {id:'c_ava', name:'Ava Moon', bio:'Lifestyle & tips', avatar:'A', price_cents:499, subscribers: 12},
+      {id:'c_jax', name:'Jax Rivera', bio:'Fitness creator', avatar:'J', price_cents:799, subscribers: 5}
+    ];
+    const posts = [
+      {id:'post1', creator:'c_ava', title:'Welcome! (preview)', content:'This is a public preview post. Subscribe for more.', access:'public', time: Date.now()-1000*60*60*24},
+      {id:'post2', creator:'c_ava', title:'Subscriber-only tips', content:'Top-secret tips for subscribers only. (demo content)', access:'subscribers', time: Date.now()-1000*60*60*2},
+      {id:'post3', creator:'c_jax', title:'Workout plan (preview)', content:'Free teaser of my workout plan.', access:'public', time: Date.now()-1000*60*60*6}
+    ];
+    storage.setItem('ch_creators', JSON.stringify(creators));
+    storage.setItem('ch_posts', JSON.stringify(posts));
+    storage.setItem('ch_users', JSON.stringify([]));
+    // simulated subscription records: [{userId, creatorId}]
+    storage.setItem('ch_subs', JSON.stringify([]));
+    storage.setItem('ch_current_user', JSON.stringify(null));
+    storage.setItem('ch_demo_v1','1');
+  }
+}
+
+// --- Data accessors
+function getCreators(){ return JSON.parse(storage.getItem('ch_creators')||'[]'); }
+function getPosts(){ return JSON.parse(storage.getItem('ch_posts')||'[]'); }
+function getUsers(){ return JSON.parse(storage.getItem('ch_users')||'[]'); }
+function getSubs(){ return JSON.parse(storage.getItem('ch_subs')||'[]'); }
+function currentUser(){ return JSON.parse(storage.getItem('ch_current_user')); }
+function setCreators(v){ storage.setItem('ch_creators', JSON.stringify(v)); }
+function setPosts(v){ storage.setItem('ch_posts', JSON.stringify(v)); }
+function setUsers(v){ storage.setItem('ch_users', JSON.stringify(v)); }
+function setSubs(v){ storage.setItem('ch_subs', JSON.stringify(v)); }
+function setCurrentUser(u){ storage.setItem('ch_current_user', JSON.stringify(u)); }
+
+// --- Render creators list
+function renderCreators(){
+  const list = $('creatorsList'); list.innerHTML='';
+  getCreators().forEach(c=>{
+    const div = document.createElement('div');
+    div.className='card';
+    div.style.display='flex'; div.style.justifyContent='space-between'; div.style.alignItems='center';
+    div.innerHTML = `
+      <div style="display:flex;gap:10px;align-items:center">
+        <div class="avatar">${escape(c.avatar||c.name[0])}</div>
+        <div>
+          <div style="font-weight:700">${escape(c.name)}</div>
+          <div class="muted">${escape(c.bio)}</div>
+        </div>
+      </div>
+      <div style="text-align:right">
+        <div class="muted" style="margin-bottom:8px">$${(c.price_cents/100).toFixed(2)}/mo</div>
+        <div style="display:flex;gap:6px;justify-content:flex-end">
+          <button class="btn" onclick="openProfile('${c.id}')">View</button>
+        </div>
+      </div>
+    `;
+    list.appendChild(div);
+  });
+}
+
+// --- Profile view
+let selectedCreatorId = null;
+function openProfile(id){
+  selectedCreatorId = id;
+  const c = getCreators().find(x=>x.id===id);
+  if(!c) return;
+  $('profileAvatar').textContent = c.avatar || c.name[0];
+  $('profileName').textContent = c.name;
+  $('profileBio').textContent = c.bio;
+  renderSubscribeArea(c);
+  renderPostsForCreator(c.id);
+  // show/hide creator actions if current user is that creator
+  const cur = currentUser();
+  if(cur && cur.role==='creator' && cur.creatorId===c.id){
+    $('creatorActions').classList.remove('hidden');
+  } else {
+    $('creatorActions').classList.add('hidden');
+  }
+}
+
+// --- Subscribe area (simulated)
+function renderSubscribeArea(creator){
+  const area = $('subscribeArea'); area.innerHTML='';
+  const cur = currentUser();
+  const subs = getSubs();
+  const isSub = cur && subs.some(s => s.userId===cur.id && s.creatorId===creator.id);
+  if(isSub){
+    area.innerHTML = `<div style="text-align:right"><div class="muted">You are subscribed • $${(creator.price_cents/100).toFixed(2)}/mo</div><button class="btn ghost" onclick="unsubscribe('${creator.id}')">Unsubscribe</button></div>`;
+  } else {
+    area.innerHTML = `<div style="text-align:right"><div class="muted">Subscribe to access exclusive posts</div><button class="btn" onclick="startSubscribe('${creator.id}')">Subscribe $${(creator.price_cents/100).toFixed(2)}/mo</button></div>`;
+  }
+}
+
+// --- Posts render with access control
+function renderPostsForCreator(creatorId){
+  const container = $('postsArea'); container.innerHTML='';
+  const posts = getPosts().filter(p=>p.creator===creatorId).sort((a,b)=>b.time-a.time);
+  const cur = currentUser();
+  const subs = getSubs();
+  const isSub = cur && subs.some(s=>s.userId===cur.id && s.creatorId===creatorId);
+  posts.forEach(p=>{
+    const postEl = document.createElement('div'); postEl.className='post';
+    let visible = p.access==='public' || isSub || (cur && cur.role==='creator' && cur.creatorId===creatorId);
+    postEl.innerHTML = `<div style="display:flex;justify-content:space-between"><div style="font-weight:700">${escape(p.title)}</div><div class="muted">${new Date(p.time).toLocaleString()} • ${p.access}</div></div>
+      <div style="margin-top:8px">${ visible ? escape(p.content) : '<em class="muted">This post is for subscribers only. Subscribe to view.</em>' }</div>`;
+    container.appendChild(postEl);
+  });
+  if(posts.length===0) container.innerHTML = '<div class="muted card">No posts yet.</div>';
+}
+
+// --- AUTH / SUBSCRIBE (demo flows)
+function openModal(html){
+  $('modalContent').innerHTML = html;
+  $('modal').style.display = 'block';
+}
+function closeModal(){ $('modal').style.display = 'none'; }
+
+$('modalClose').addEventListener('click', closeModal);
+
+function startSubscribe(creatorId){
+  const c = getCreators().find(x=>x.id===creatorId);
+  const cur = currentUser();
+  if(!cur){ openSignIn('subscribe', creatorId); return; }
+  // Demo: simulate a payment flow. In production, redirect to Stripe Checkout and record subscription server-side.
+  openModal(`
+    <div>
+      <h3>Subscribe to ${escape(c.name)}</h3>
+      <div class="muted">This demo simulates payment. In production integrate Stripe Checkout and record with webhooks.</div>
+      <div style="margin-top:12px">
+        <div style="margin-bottom:8px">Charge: <strong>$${(c.price_cents/100).toFixed(2)}/month</strong></div>
+        <button class="btn" onclick="confirmSubscribe('${creatorId}')">Simulate payment & subscribe</button>
+      </div>
+    </div>
+  `);
+}
+
+function confirmSubscribe(creatorId){
+  const cur = currentUser();
+  if(!cur){ alert('Sign in first'); closeModal(); return; }
+  const subs = getSubs();
+  subs.push({userId:cur.id, creatorId, since: Date.now()});
+  setSubs(subs);
+  // increase subscriber count in creators list (demo)
+  const creators = getCreators().map(c => c.id===creatorId ? {...c, subscribers:(c.subscribers||0)+1} : c);
+  setCreators(creators);
+  closeModal(); renderAll();
+  alert('Subscribed (demo). In production this would be handled by the payment processor and server.');
+}
+function unsubscribe(creatorId){
+  const cur = currentUser();
+  if(!cur){ alert('Sign in first'); return; }
+  let subs = getSubs().filter(s => !(s.userId===cur.id && s.creatorId===creatorId));
+  setSubs(subs);
+  const creators = getCreators().map(c => c.id===creatorId ? {...c, subscribers: Math.max(0,(c.subscribers||1)-1)} : c);
+  setCreators(creators);
+  renderAll();
+  alert('Unsubscribed (demo). In production cancel via payment provider / billing portal.');
+}
+
+// --- Sign in / register (demo)
+$('signinBtn').addEventListener('click', ()=> openSignIn());
+function openSignIn(action, creatorId){
+  openModal(`
+    <div>
+      <h3>Sign in / Register (demo)</h3>
+      <div style="display:flex;flex-direction:column;gap:8px;margin-top:8px">
+        <input id="regName" placeholder="Display name" />
+        <select id="regRole">
+          <option value="member">Member</option>
+          <option value="creator">Creator</option>
+        </select>
+        <div style="display:flex;gap:8px;justify-content:flex-end">
+          <button class="btn" onclick="demoRegister('${action||''}','${creatorId||''}')">Continue</button>
+        </div>
+      </div>
+    </div>
+  `);
+}
+
+function demoRegister(action='', creatorId=''){
+  const name = $('regName').value.trim() || ('User'+Math.floor(Math.random()*999));
+  const role = $('regRole').value;
+  const id = 'u_'+name.toLowerCase().replace(/[^a-z0-9]+/g,'_')+'_'+Math.floor(Math.random()*999);
+  const users = getUsers();
+  const user = {id, name, role, creatorId: role==='creator' ? null : null};
+  // If registering as creator, create a creator profile
+  if(role==='creator'){
+    const creators = getCreators();
+    const cid = 'c_'+name.toLowerCase().replace(/[^a-z0-9]+/g,'_')+'_'+Math.floor(Math.random()*999);
+    creators.push({id:cid, name, bio:'New creator (demo)', avatar: name[0].toUpperCase(), price_cents:499, subscribers:0});
+    setCreators(creators);
+    user.creatorId = cid;
+  }
+  users.push(user); setUsers(users);
+  setCurrentUser(user);
+  closeModal();
+  renderAll();
+  if(action==='subscribe' && creatorId) startSubscribe(creatorId);
+}
+
+// --- Creator create post (demo)
+$('createPostBtn').addEventListener('click', ()=> {
+  const cur = currentUser();
+  if(!cur || cur.role!=='creator' || !cur.creatorId){ alert('Creator-only action'); return; }
+  const title = $('postTitle').value.trim()||'Untitled';
+  const content = $('postContent').value.trim()||'';
+  const access = $('postAccess').value;
+  const posts = getPosts();
+  posts.push({id:'p_'+Date.now(), creator: cur.creatorId, title, content, access, time: Date.now()});
+  setPosts(posts);
+  $('postTitle').value=''; $('postContent').value='';
+  renderAll();
+  alert('Post created (demo). In production store media securely and run moderation.');
+});
+
+$('createPostCancel').addEventListener('click', ()=> { $('postTitle').value=''; $('postContent').value=''; });
+
+// --- Utility escape
+function escape(s=''){ return String(s).replace(/[&<>"']/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch])); }
+
+// --- Main render
+function renderAccountArea(){
+  const cur = currentUser();
+  if(cur){
+    $('accountArea').textContent = cur.name + (cur.role==='creator' ? ' • creator' : '');
+    $('signinBtn').textContent = 'Sign out';
+    $('signinBtn').onclick = ()=> { setCurrentUser(null); renderAll(); };
+  } else {
+    $('accountArea').textContent = 'Not signed in';
+    $('signinBtn').textContent = 'Sign in / Register';
+    $('signinBtn').onclick = ()=> openSignIn();
+  }
+}
+
+function renderAll(){
+  renderCreators();
+  renderAccountArea();
+  // open first creator by default
+  if(!selectedCreatorId){
+    const c = getCreators()[0];
+    if(c) openProfile(c.id);
+  } else {
+    openProfile(selectedCreatorId);
+  }
+}
+
+// --- "Become a creator" demo
+$('becomeCreatorBtn').addEventListener('click', ()=> {
+  openSignIn('become_creator');
+});
+
+// boot & render
+boot();
+renderAll();
+</script>
+</body>
+</html>
